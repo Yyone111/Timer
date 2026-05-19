@@ -1,0 +1,1242 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>大师级极简计时器</title>
+<style>
+  :root {
+    --bg-image: url("23d1a7fe1ab28f6a7e51f0a475a2a80.png");
+    --card-bg: rgba(255, 255, 255, 0.55);
+    --card-blur: blur(24px) saturate(1.6);
+    --primary: #7c3aed;
+    --primary-light: rgba(124, 58, 237, 0.10);
+    --primary-glow: rgba(124, 58, 237, 0.28);
+    --text-main: #0f172a;
+    --text-muted: #475569;
+    --text-dim: #718096;
+    --surface: rgba(248, 250, 252, 0.72);
+    --surface-hover: rgba(241, 245, 249, 0.88);
+    --border: rgba(0, 0, 0, 0.07);
+    --border-light: rgba(255, 255, 255, 0.65);
+    --success: #10b981;
+    --success-glow: rgba(16, 185, 129, 0.30);
+    --warning: #f59e0b;
+    --warning-glow: rgba(245, 158, 11, 0.30);
+    --danger: #ef4444;
+    --danger-glow: rgba(239, 68, 68, 0.28);
+    --glow-color: rgba(124, 58, 237, 0.32);
+    --ambient-glow: rgba(124, 58, 237, 0.04);
+    --card-shadow: 0 4px 24px rgba(0,0,0,0.05),
+                   0 1px 4px rgba(0,0,0,0.03),
+                   0 0 0 1px rgba(255,255,255,0.4) inset,
+                   0 1px 0 rgba(255,255,255,0.25) inset;
+    --card-shadow-running: 0 8px 32px rgba(124,58,237,0.10),
+                            0 2px 8px rgba(0,0,0,0.04),
+                            0 0 0 1px rgba(255,255,255,0.45) inset,
+                            0 0 80px rgba(124,58,237,0.08);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --card-bg: rgba(15, 23, 42, 0.70);
+      --card-blur: blur(28px) saturate(1.3);
+      --primary: #a78bfa;
+      --primary-light: rgba(167, 139, 250, 0.12);
+      --primary-glow: rgba(167, 139, 250, 0.32);
+      --text-main: #f8fafc;
+      --text-muted: #cbd5e1;
+      --text-dim: #94a3b8;
+      --surface: rgba(30, 41, 59, 0.68);
+      --surface-hover: rgba(51, 65, 85, 0.78);
+      --border: rgba(255, 255, 255, 0.09);
+      --border-light: rgba(255, 255, 255, 0.14);
+      --glow-color: rgba(167, 139, 250, 0.36);
+      --ambient-glow: rgba(167, 139, 250, 0.06);
+      --card-shadow: 0 4px 24px rgba(0,0,0,0.30),
+                     0 1px 4px rgba(0,0,0,0.20),
+                     0 0 0 1px rgba(255,255,255,0.10) inset;
+      --card-shadow-running: 0 8px 32px rgba(167,139,250,0.12),
+                              0 2px 8px rgba(0,0,0,0.22),
+                              0 0 0 1px rgba(255,255,255,0.12) inset,
+                              0 0 80px rgba(167,139,250,0.10);
+    }
+    .ambient-orb { opacity: 0.25; }
+    body::after {
+      content: "";
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.28);
+      pointer-events: none; z-index: -1;
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: -40px;
+    background-image: var(--bg-image);
+    background-size: cover;
+    background-position: center;
+    animation: kenBurns 40s ease-in-out infinite alternate;
+    z-index: -2;
+  }
+  @keyframes kenBurns {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.08); }
+  }
+
+  /* ===== 卡片容器 ===== */
+  .container {
+    background: var(--card-bg);
+    backdrop-filter: var(--card-blur);
+    -webkit-backdrop-filter: var(--card-blur);
+    border: 1px solid var(--border-light);
+    border-radius: 28px;
+    padding: 2.2rem 2.5rem;
+    width: 92%;
+    max-width: 500px;
+    box-shadow: var(--card-shadow);
+    transition: all 0.5s cubic-bezier(0.4,0,0.2,1);
+    position: relative;
+    overflow: hidden;
+    animation: cardEnter 0.7s 0.1s cubic-bezier(0.4,0,0.2,1) both;
+  }
+  @keyframes cardEnter {
+    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .container::before {
+    content: "";
+    position: absolute; top: 0; left: 12%; right: 12%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent);
+    pointer-events: none; z-index: 1;
+  }
+
+  /* 旋转渐变描边 */
+  .gradient-border {
+    position: absolute; inset: -2px; border-radius: 30px; padding: 2px;
+    background: conic-gradient(
+      from 0deg, transparent, var(--primary), var(--success), var(--primary), transparent,
+      transparent, var(--primary), var(--success), var(--primary), transparent
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events: none; z-index: 0; opacity: 0.35;
+    animation: rotateBorder 8s linear infinite;
+  }
+  @keyframes rotateBorder {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .container::after {
+    content: "";
+    position: absolute; inset: -1px; border-radius: 29px; padding: 1px;
+    background: linear-gradient(160deg,
+      rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 30%,
+      rgba(255,255,255,0.0) 50%, rgba(255,255,255,0.15) 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events: none; z-index: 1; opacity: 0.7;
+    transition: opacity 0.5s;
+  }
+  .container.running {
+    box-shadow: var(--card-shadow-running);
+    transform: translateY(-2px);
+  }
+  .container.running::after { opacity: 1; }
+
+  /* 玻璃光泽扫过 */
+  .shimmer {
+    position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: linear-gradient(105deg,
+      transparent 40%, rgba(255,255,255,0.0) 45%,
+      rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.0) 55%,
+      transparent 60%);
+    transform: translateX(-100%) rotate(25deg);
+    animation: shimmerSweep 6s ease-in-out infinite;
+    pointer-events: none; z-index: 1;
+  }
+  @keyframes shimmerSweep {
+    0%, 100% { transform: translateX(-100%) rotate(25deg); }
+    50% { transform: translateX(100%) rotate(25deg); }
+  }
+
+  /* 环境光晕 */
+  .ambient-orb {
+    position: fixed; border-radius: 50%; pointer-events: none; z-index: 0;
+    filter: blur(60px); opacity: 0.35;
+    animation: orbFloat 12s ease-in-out infinite;
+  }
+  .ambient-orb:nth-child(2) {
+    width: 300px; height: 300px;
+    background: var(--primary);
+    top: 20%; left: -5%;
+    animation-delay: 0s;
+  }
+  .ambient-orb:nth-child(3) {
+    width: 220px; height: 220px;
+    background: var(--success);
+    bottom: 25%; right: -3%;
+    animation-delay: -6s;
+  }
+  @keyframes orbFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(20px, -30px) scale(1.15); }
+    66% { transform: translate(-20px, 20px) scale(0.85); }
+  }
+
+  /* 卡片悬浮微动 */
+  .card-float {
+    animation: cardFloat 8s ease-in-out infinite;
+  }
+  @keyframes cardFloat {
+    0%, 100% { transform: translateY(0); }
+    25% { transform: translateY(-3px); }
+    75% { transform: translateY(2px); }
+  }
+
+  /* ===== 标签导航 ===== */
+  .tab-nav {
+    display: flex; gap: 0;
+    background: var(--surface);
+    border-radius: 16px; padding: 5px; margin-bottom: 1.8rem;
+    position: relative; z-index: 2;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    animation: tabEnter 0.5s 0.2s cubic-bezier(0.4,0,0.2,1) both;
+  }
+  @keyframes tabEnter {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .tab-slider {
+    position: absolute;
+    top: 5px; height: calc(100% - 10px);
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(255,255,255,0.4) inset, 0 1px 0 rgba(255,255,255,0.3) inset;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: left 0.4s cubic-bezier(0.33,1,0.68,1), width 0.4s cubic-bezier(0.33,1,0.68,1);
+    z-index: 0; pointer-events: none;
+  }
+  .tab-btn {
+    flex: 1; padding: 11px 0; border: none; background: transparent;
+    border-radius: 12px; font-size: 0.88rem; font-weight: 600;
+    color: var(--text-dim); cursor: pointer;
+    transition: color 0.3s cubic-bezier(0.4,0,0.2,1); outline: none;
+    position: relative; z-index: 1;
+  }
+  .tab-btn.active { color: var(--primary); font-weight: 700; }
+  .tab-btn:hover:not(.active) { color: var(--text-muted); }
+
+  /* ===== 面板容器 ===== */
+  .panel { display: none; animation: fadeSlideIn 0.4s cubic-bezier(0.4,0,0.2,1); position: relative; z-index: 2; }
+
+  /* 鼠标跟随微光 */
+  .mouse-glow {
+    position: fixed; width: 450px; height: 450px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(124,58,237,0.12) 0%, rgba(124,58,237,0.04) 50%, transparent 70%);
+    pointer-events: none; z-index: 0;
+    left: calc(var(--mouse-x, 50vw) - 225px);
+    top: calc(var(--mouse-y, 50vh) - 225px);
+    will-change: left, top;
+  }
+  .panel.active { display: block; }
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(8px); filter: blur(2px); }
+    to { opacity: 1; transform: translateY(0); filter: blur(0); }
+  }
+
+  /* ===== 顶部栏 ===== */
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+  .tag {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 2.5px;
+    color: var(--text-dim); text-transform: uppercase;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .top-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-muted); cursor: pointer; padding: 7px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    transition: all 0.25s;
+  }
+  .top-btn:hover { color: var(--primary); background: var(--primary-light); border-color: transparent; }
+  .top-btn.active { color: var(--success); background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.2); }
+
+  /* ===== 时间显示 ===== */
+  .display-container {
+    margin: 1.2rem 0 1.8rem 0; cursor: pointer; user-select: none;
+    border-radius: 20px; transition: background 0.3s; padding: 14px 0;
+    text-align: center; position: relative;
+  }
+  .display-container:hover { background: rgba(255,255,255,0.05); }
+  .display-container::after {
+    content: "点击全屏观看"; position: absolute; bottom: -8px; left: 50%;
+    transform: translateX(-50%); font-size: 0.65rem;
+    color: var(--text-dim); opacity: 0; transition: opacity 0.3s;
+  }
+  .display-container:hover::after { opacity: 1; }
+
+  .time-display {
+    font-size: 4.8rem; font-weight: 160;
+    font-family: "SF Pro Display", -apple-system, "Helvetica Neue", sans-serif;
+    letter-spacing: -3px; color: var(--text-main);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    transition: transform 0.06s ease;
+  }
+  .ms-display { font-size: 2.5rem; color: var(--primary); font-weight: 320; margin-left: 4px; opacity: 0.85; transition: transform 0.06s ease; }
+
+
+  /* ===== 呼吸发光 ===== */
+  .pulse-glow { animation: pulseGlow 2.5s ease-in-out infinite; }
+  @keyframes pulseGlow {
+    0%, 100% { text-shadow: 0 0 10px var(--glow-color), 0 0 20px var(--glow-color); }
+    50% { text-shadow: 0 0 24px var(--glow-color), 0 0 48px var(--glow-color), 0 0 72px var(--glow-color); }
+  }
+
+  /* ===== 按钮 ===== */
+  .controls { display: flex; justify-content: center; gap: 0.75rem; margin-bottom: 1rem; }
+  .btn {
+    outline: none; border: none; padding: 0.75rem 1.8rem;
+    font-size: 0.9rem; font-weight: 600; border-radius: 50px;
+    cursor: pointer; transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    color: #fff; position: relative; letter-spacing: 0.3px;
+  }
+  .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+  .btn:active { transform: translateY(0); filter: brightness(0.95); }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none !important; filter: none !important; }
+
+  .btn-start { background: var(--success); box-shadow: 0 2px 8px rgba(16,185,129,0.22); }
+  .btn-start:hover { box-shadow: 0 4px 14px rgba(16,185,129,0.32); }
+
+  .btn-pause { background: var(--warning); box-shadow: 0 2px 8px rgba(245,158,11,0.22); color: #1e293b; }
+  .btn-pause:hover { box-shadow: 0 4px 14px rgba(245,158,11,0.32); }
+
+  .btn-reset { background: transparent; color: var(--text-muted); box-shadow: none; border: 1.5px solid var(--border); }
+  .btn-reset:hover { color: var(--danger); border-color: var(--danger); background: rgba(239,68,68,0.04); box-shadow: none; }
+
+  .btn-sm { padding: 0.45rem 1rem; font-size: 0.78rem; border-radius: 50px; }
+
+  /* ===== 快捷键提示 ===== */
+  .speed-dial {
+    display: flex; justify-content: center; gap: 10px; margin-top: 1.5rem;
+    animation: fadeInUp 0.6s 0.3s cubic-bezier(0.4,0,0.2,1) both;
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .speed-key {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 22px; padding: 5px 14px 5px 6px;
+    font-size: 0.7rem; color: var(--text-muted); font-weight: 500;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: all 0.2s;
+  }
+  .speed-key:hover { border-color: var(--border-light); color: var(--text-main); background: var(--surface-hover); }
+  .speed-key kbd {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 24px; height: 24px;
+    background: linear-gradient(180deg, #ffffff60, var(--surface));
+    border: 1px solid var(--border); border-radius: 7px;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.66rem; font-weight: 700;
+    color: var(--primary); padding: 0 5px;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.05), 0 1px 0 rgba(255,255,255,0.3) inset;
+  }
+
+  /* ===== 番茄钟面板 ===== */
+  .pomodoro-header { display: flex; justify-content: center; gap: 6px; margin-bottom: 1rem; }
+  .pomo-phase-btn {
+    padding: 7px 16px; border: 1px solid var(--border);
+    background: var(--surface); border-radius: 22px;
+    font-size: 0.78rem; font-weight: 600; color: var(--text-dim);
+    cursor: pointer; transition: all 0.3s; outline: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .pomo-phase-btn.active {
+    background: var(--primary); color: #fff; border-color: var(--primary);
+    box-shadow: 0 4px 14px var(--primary-glow);
+  }
+  .pomo-phase-btn:hover:not(.active) {
+    color: var(--text-muted); border-color: var(--border-light);
+  }
+
+  .pomo-center { text-align: center; position: relative; margin: 1rem 0 1.5rem 0; }
+
+  .ring-container { position: relative; width: 186px; height: 186px; margin: 0 auto 1.2rem auto; }
+  .ring-container svg { transform: rotate(-90deg); filter: drop-shadow(0 2px 8px rgba(0,0,0,0.04)); }
+  .ring-container svg { animation: ringIdle 5s ease-in-out infinite; }
+  .ring-container.running svg { animation: ringPulse 4s ease-in-out infinite; }
+  @keyframes ringIdle {
+    0%, 100% { filter: drop-shadow(0 2px 8px rgba(0,0,0,0.04)); }
+    50% { filter: drop-shadow(0 2px 14px rgba(124,58,237,0.08)); }
+  }
+  @keyframes ringPulse {
+    0%, 100% { filter: drop-shadow(0 2px 8px rgba(0,0,0,0.04)); }
+    50% { filter: drop-shadow(0 2px 24px var(--primary-glow)); }
+  }
+  .ring-bg { fill: none; stroke: var(--surface); stroke-width: 5; }
+  .ring-fill {
+    fill: none; stroke: var(--primary); stroke-width: 5;
+    stroke-linecap: round; transition: stroke-dashoffset 1s linear;
+  }
+  .ring-text {
+    position: absolute; inset: 0; display: flex;
+    flex-direction: column; align-items: center; justify-content: center;
+  }
+  .pomo-time {
+    font-size: 2.9rem; font-weight: 160;
+    font-family: "SF Pro Display", -apple-system, "Helvetica Neue", sans-serif;
+    letter-spacing: -1.5px;
+  }
+  .pomo-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+
+  .pomo-stats {
+    display: flex; justify-content: center; gap: 32px; margin-top: 1.2rem;
+    padding-top: 1rem; border-top: 1px solid var(--border);
+  }
+  .pomo-stat { text-align: center; }
+  .pomo-stat-val { font-size: 1.3rem; font-weight: 700; color: var(--text-main); }
+  .pomo-stat-lbl { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
+
+  .pomo-settings-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-muted); cursor: pointer; padding: 7px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.25s; outline: none;
+  }
+  .pomo-settings-btn:hover { color: var(--primary); background: var(--primary-light); border-color: transparent; }
+
+  /* ===== 设置弹窗 ===== */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.35); backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 100; justify-content: center; align-items: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--card-bg); backdrop-filter: var(--card-blur);
+    -webkit-backdrop-filter: var(--card-blur);
+    border: 1px solid var(--border-light); border-radius: 24px;
+    padding: 2rem 2.2rem; width: 92%; max-width: 360px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.18);
+    animation: modalIn 0.35s cubic-bezier(0.4,0,0.2,1);
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .modal h3 { margin-bottom: 1.4rem; font-size: 1.1rem; font-weight: 600; }
+  .modal-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.1rem; }
+  .modal-row label { font-size: 0.85rem; color: var(--text-main); }
+  .modal-row input {
+    width: 64px; padding: 7px 8px; border: 1px solid var(--border);
+    border-radius: 10px; text-align: center; font-size: 0.9rem;
+    background: var(--surface); color: var(--text-main); outline: none;
+    transition: border 0.2s;
+  }
+  .modal-row input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1.5rem; }
+  .btn-cancel { background: var(--surface); color: var(--text-main); border: 1px solid var(--border); border-radius: 50px; }
+  .btn-save { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(124,58,237,0.22); border-radius: 50px; }
+  .btn-save:hover { box-shadow: 0 4px 14px rgba(124,58,237,0.32); }
+
+  /* ===== 任务面板 ===== */
+  .task-input-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+  .task-input {
+    flex: 1; padding: 12px 16px; border: 1px solid var(--border);
+    border-radius: 14px; font-size: 0.9rem; outline: none;
+    background: var(--surface); color: var(--text-main);
+    transition: all 0.25s;
+  }
+  .task-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+  }
+  .btn-add {
+    background: var(--primary); color: #fff; padding: 10px 18px; border-radius: 50px;
+    box-shadow: 0 2px 8px rgba(124,58,237,0.22);
+  }
+  .btn-add:hover { box-shadow: 0 4px 14px rgba(124,58,237,0.32); }
+
+  .task-list { max-height: 280px; overflow-y: auto; }
+  .task-list::-webkit-scrollbar { width: 5px; }
+  .task-list::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.15); border-radius: 10px; }
+
+  .task-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 16px; background: var(--surface); border-radius: 14px;
+    margin-bottom: 6px; cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+    border: 1px solid var(--border); gap: 10px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: taskEnter 0.4s ease both;
+  }
+  @keyframes taskEnter {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .task-item:hover { background: var(--surface-hover); border-color: var(--border-light); transform: translateX(2px); }
+  .task-item.active-task {
+    border-color: var(--success);
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.12);
+    background: rgba(16,185,129,0.04);
+  }
+  .task-item.completed { opacity: 0.5; }
+  .task-item.completed .task-title { text-decoration: line-through; }
+
+  .task-check {
+    width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid var(--text-dim); display: flex; align-items: center;
+    justify-content: center; transition: all 0.25s; font-size: 11px;
+    color: transparent;
+  }
+  .task-item.completed .task-check { background: var(--success); border-color: var(--success); color: #fff; }
+  .task-check:hover { border-color: var(--success); transform: scale(1.1); }
+
+  .task-title { flex: 1; font-size: 0.9rem; color: var(--text-main); }
+  .task-time { font-family: "SF Mono", monospace; font-size: 0.8rem; color: var(--text-muted); min-width: 58px; text-align: right; }
+  .task-delete {
+    background: none; border: none; color: var(--text-dim); cursor: pointer;
+    padding: 4px; font-size: 1.1rem; line-height: 1; opacity: 0;
+    transition: all 0.2s; border-radius: 6px; outline: none;
+  }
+  .task-item:hover .task-delete { opacity: 1; }
+  .task-delete:hover { color: var(--danger); background: rgba(239,68,68,0.08); }
+
+  .task-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 0.9rem; font-size: 0.73rem; color: var(--text-muted); font-weight: 500;
+  }
+
+  .empty-lap-tip { color: var(--text-muted); font-size: 0.82rem; padding: 2.5rem 0; font-style: italic; text-align: center; font-weight: 500; }
+
+  /* ===== 名言栏 ===== */
+  .quote-bar {
+    margin-top: 1.4rem; padding-top: 0.9rem;
+    border-top: 1px solid var(--border); text-align: center;
+    position: relative; z-index: 2;
+  }
+  .quote-text {
+    font-size: 0.8rem; color: var(--text-muted); font-style: italic;
+    transition: opacity 0.8s ease;
+    font-weight: 500; letter-spacing: 0.3px;
+    animation: quoteFade 1s 0.5s cubic-bezier(0.4,0,0.2,1) both;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+  @keyframes quoteFade {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .quote-author { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
+
+  /* ===== 全屏模式 ===== */
+  body.fullscreen-mode .tab-nav,
+  body.fullscreen-mode .tab-btn { display: none; }
+  body.fullscreen-mode .container {
+    width: 100vw; max-width: 100vw; height: 100vh;
+    border-radius: 0; border: none;
+    background: var(--card-bg); backdrop-filter: var(--card-blur);
+    -webkit-backdrop-filter: var(--card-blur);
+    display: flex; flex-direction: column; justify-content: center;
+    align-items: center; padding: 0;
+  }
+  body.fullscreen-mode .container::before { display: none; }
+  body.fullscreen-mode .panel { width: 100%; height: 100%; display: none; flex-direction: column; justify-content: center; align-items: center; }
+  body.fullscreen-mode .panel.active { display: flex; }
+  body.fullscreen-mode .time-display { font-size: 13vw; }
+  body.fullscreen-mode .ms-display { font-size: 6vw; }
+  body.fullscreen-mode .controls,
+  body.fullscreen-mode .speed-dial,
+  body.fullscreen-mode .top-bar .tag,
+  body.fullscreen-mode .quote-bar { display: none; }
+  body.fullscreen-mode .display-container::after { content: "按 ESC 退出全屏"; bottom: -32px; font-size: 1.2rem; opacity: 0.4; }
+  body.fullscreen-mode .pomo-stats { display: none; }
+  body.fullscreen-mode .pomo-time { font-size: 11vw; }
+  body.fullscreen-mode .ring-container { width: 32vw; height: 32vw; }
+</style>
+</head>
+<body>
+<div class="mouse-glow"></div>
+<div class="ambient-orb"></div>
+<div class="ambient-orb"></div>
+<div class="container card-float" id="card">
+  <div class="gradient-border"></div>
+  <div class="shimmer"></div>
+
+  <div class="tab-nav" id="tabNav">
+    <div class="tab-slider" id="tabSlider"></div>
+    <button class="tab-btn active" data-panel="stopwatch">秒表</button>
+    <button class="tab-btn" data-panel="pomodoro">番茄钟</button>
+    <button class="tab-btn" data-panel="tasks">任务</button>
+  </div>
+
+  <!-- ===== 秒表面板 ===== -->
+  <div class="panel active" id="panel-stopwatch">
+    <div class="top-bar">
+      <span class="tag">Chrono Master</span>
+      <button class="top-btn" id="soundBtn" title="节拍音效开关">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="display-container" id="displayContainer" title="点击进入全屏大字模式">
+      <div class="time-display" id="display">00:00:00<span class="ms-display">.00</span></div>
+    </div>
+    <div class="controls">
+      <button class="btn btn-start" id="startPauseBtn">开始</button>
+      <button class="btn btn-reset" id="resetBtn">重置</button>
+    </div>
+    <div class="speed-dial">
+      <span class="speed-key"><kbd>Space</kbd> 开始/暂停</span>
+      <span class="speed-key"><kbd>R</kbd> 重置</span>
+    </div>
+  </div>
+
+  <!-- ===== 番茄钟面板 ===== -->
+  <div class="panel" id="panel-pomodoro">
+    <div class="top-bar">
+      <span class="tag">Pomodoro</span>
+      <button class="pomo-settings-btn" id="pomoSettingsBtn" title="设置">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="pomodoro-header">
+      <button class="pomo-phase-btn active" data-phase="focus">专注</button>
+      <button class="pomo-phase-btn" data-phase="shortBreak">短休</button>
+      <button class="pomo-phase-btn" data-phase="longBreak">长休</button>
+    </div>
+    <div class="pomo-center">
+      <div class="ring-container">
+        <svg width="180" height="180" viewBox="0 0 180 180">
+          <defs>
+            <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#7c3aed"/>
+              <stop offset="40%" stop-color="#8b5cf6"/>
+              <stop offset="100%" stop-color="#a78bfa"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring-bg" cx="90" cy="90" r="84"/>
+          <circle class="ring-fill" id="pomoRing" cx="90" cy="90" r="84" stroke-dasharray="527.8" stroke-dashoffset="0"/>
+        </svg>
+        <div class="ring-text">
+          <div class="pomo-time pulse-glow" id="pomoTime">25:00</div>
+          <div class="pomo-label" id="pomoLabel">专注时间 · 第 1/4 轮</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn btn-start" id="pomoStartBtn">开始专注</button>
+        <button class="btn btn-sm btn-reset" id="pomoSkipBtn">跳过</button>
+      </div>
+    </div>
+    <div class="pomo-stats">
+      <div class="pomo-stat">
+        <div class="pomo-stat-val" id="pomoRounds">0</div>
+        <div class="pomo-stat-lbl">完成轮次</div>
+      </div>
+      <div class="pomo-stat">
+        <div class="pomo-stat-val" id="pomoTodayMin">0min</div>
+        <div class="pomo-stat-lbl">今日专注</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 任务面板 ===== -->
+  <div class="panel" id="panel-tasks">
+    <div class="top-bar"><span class="tag">Task List</span></div>
+    <div class="task-input-row">
+      <input class="task-input" id="taskInput" placeholder="输入新任务，回车添加..." autocomplete="off">
+      <button class="btn btn-add" id="taskAddBtn">+ 添加</button>
+    </div>
+    <div class="task-list" id="taskList">
+      <div class="empty-lap-tip" id="taskEmptyTip">暂无任务，添加一个开始吧</div>
+    </div>
+    <div class="task-footer">
+      <span id="taskPendingCount">0 待完成</span>
+      <span id="taskTodayTotal">今日合计: 0:00:00</span>
+    </div>
+  </div>
+
+  <!-- 名言栏 -->
+  <div class="quote-bar">
+    <div class="quote-text" id="quoteText">千里之行，始于足下</div>
+    <div class="quote-author" id="quoteAuthor">—— 老子</div>
+  </div>
+</div>
+
+<!-- 番茄钟设置弹窗 -->
+<div class="modal-overlay" id="pomoModal">
+  <div class="modal">
+    <h3>番茄钟设置</h3>
+    <div class="modal-row">
+      <label>专注时长（分钟）</label>
+      <input type="number" id="setFocus" min="1" max="120" value="25">
+    </div>
+    <div class="modal-row">
+      <label>短休时长（分钟）</label>
+      <input type="number" id="setShortBreak" min="1" max="30" value="5">
+    </div>
+    <div class="modal-row">
+      <label>长休时长（分钟）</label>
+      <input type="number" id="setLongBreak" min="1" max="60" value="15">
+    </div>
+    <div class="modal-row">
+      <label>长休间隔（轮）</label>
+      <input type="number" id="setLongInterval" min="2" max="10" value="4">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-sm btn-cancel" id="pomoModalCancel">取消</button>
+      <button class="btn btn-sm btn-save" id="pomoModalSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 工具函数 ====================
+function formatHMSFull(ms) {
+  const hrs = Math.floor(ms / 3600000);
+  const mins = Math.floor((ms % 3600000) / 60000);
+  const secs = Math.floor((ms % 60000) / 1000);
+  return `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+}
+
+
+// ==================== 标签切换 ====================
+const tabBtns = document.querySelectorAll('.tab-btn');
+const panels = document.querySelectorAll('.panel');
+const tabSlider = document.getElementById('tabSlider');
+const tabNav = document.getElementById('tabNav');
+let currentPanel = 'stopwatch';
+
+function moveTabSlider(targetBtn) {
+  const navRect = tabNav.getBoundingClientRect();
+  const btnRect = targetBtn.getBoundingClientRect();
+  tabSlider.style.left = (btnRect.left - navRect.left) + 'px';
+  tabSlider.style.width = btnRect.width + 'px';
+}
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.panel === currentPanel) return;
+    tabBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    moveTabSlider(btn);
+    currentPanel = btn.dataset.panel;
+    panels.forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + currentPanel).classList.add('active');
+  });
+});
+
+// Initialize slider position
+window.addEventListener('load', () => {
+  const activeBtn = document.querySelector('.tab-btn.active');
+  if (activeBtn) moveTabSlider(activeBtn);
+});
+window.addEventListener('resize', () => {
+  const activeBtn = document.querySelector('.tab-btn.active');
+  if (activeBtn) moveTabSlider(activeBtn);
+});
+
+// ==================== 秒表逻辑 ====================
+let startTime = 0, elapsedTime = 0, stopwatchInterval = null, isRunning = false;
+let isSoundOn = false, audioCtx = null, lastTickSecond = -1;
+
+const displayEl = document.getElementById('display');
+const startPauseBtn = document.getElementById('startPauseBtn');
+const resetBtn = document.getElementById('resetBtn');
+const soundBtn = document.getElementById('soundBtn');
+const displayContainer = document.getElementById('displayContainer');
+const card = document.getElementById('card');
+
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playTickSound(time) {
+  if (!isSoundOn) return;
+  const currentSecond = Math.floor(time / 1000);
+  if (currentSecond !== lastTickSecond) {
+    lastTickSecond = currentSecond;
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+  }
+}
+
+function printTime() {
+  elapsedTime = Date.now() - startTime;
+  const hrs = Math.floor(elapsedTime / 3600000);
+  const mins = Math.floor((elapsedTime % 3600000) / 60000);
+  const secs = Math.floor((elapsedTime % 60000) / 1000);
+  const ms = Math.floor((elapsedTime % 1000) / 10);
+  displayEl.innerHTML = `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}<span class="ms-display">.${String(ms).padStart(2,'0')}</span>`;
+  playTickSound(elapsedTime);
+}
+
+function toggleStartPause() {
+  initAudio();
+  if (!isRunning) {
+    startTime = Date.now() - elapsedTime;
+    stopwatchInterval = setInterval(printTime, 10);
+    startPauseBtn.textContent = '暂停';
+    startPauseBtn.className = 'btn btn-pause';
+    card.classList.add('running');
+    isRunning = true;
+    if (currentPanel === 'stopwatch') displayEl.classList.add('pulse-glow');
+  } else {
+    clearInterval(stopwatchInterval);
+    startPauseBtn.textContent = '继续';
+    startPauseBtn.className = 'btn btn-start';
+    card.classList.remove('running');
+    isRunning = false;
+    displayEl.classList.remove('pulse-glow');
+  }
+}
+
+function reset() {
+  clearInterval(stopwatchInterval);
+  displayEl.innerHTML = '00:00:00<span class="ms-display">.00</span>';
+  elapsedTime = 0; isRunning = false; lastTickSecond = -1;
+  startPauseBtn.textContent = '开始';
+  startPauseBtn.className = 'btn btn-start';
+  card.classList.remove('running');
+  displayEl.classList.remove('pulse-glow');
+}
+
+soundBtn.addEventListener('click', () => {
+  isSoundOn = !isSoundOn;
+  soundBtn.classList.toggle('active', isSoundOn);
+  initAudio();
+});
+
+function toggleFullscreen() {
+  document.body.classList.toggle('fullscreen-mode');
+}
+displayContainer.addEventListener('click', toggleFullscreen);
+
+startPauseBtn.addEventListener('click', function() { toggleStartPause(); this.blur(); });
+resetBtn.addEventListener('click', function() { reset(); this.blur(); });
+
+// ==================== 番茄钟逻辑 ====================
+const CIRCUMFERENCE = 2 * Math.PI * 84;
+
+let pomoSettings = {
+  focusDuration: 25, shortBreakDuration: 5,
+  longBreakDuration: 15, longBreakInterval: 4
+};
+
+let pomoState = {
+  currentSession: 'focus', completedRounds: 0,
+  isRunning: false, timeRemaining: 25 * 60,
+  todayTotalMinutes: 0, todayDate: ''
+};
+
+let pomoInterval = null;
+let pomoTotalSeconds = 25 * 60;
+
+const pomoTimeEl = document.getElementById('pomoTime');
+const pomoLabelEl = document.getElementById('pomoLabel');
+const pomoRingEl = document.getElementById('pomoRing');
+const pomoStartBtn = document.getElementById('pomoStartBtn');
+const pomoSkipBtn = document.getElementById('pomoSkipBtn');
+const pomoSettingsBtn = document.getElementById('pomoSettingsBtn');
+const pomoRoundsEl = document.getElementById('pomoRounds');
+const pomoTodayMinEl = document.getElementById('pomoTodayMin');
+const pomoModal = document.getElementById('pomoModal');
+
+function loadPomoSettings() {
+  const saved = localStorage.getItem('timer_pomodoro_settings');
+  if (saved) {
+    pomoSettings = JSON.parse(saved);
+    document.getElementById('setFocus').value = pomoSettings.focusDuration;
+    document.getElementById('setShortBreak').value = pomoSettings.shortBreakDuration;
+    document.getElementById('setLongBreak').value = pomoSettings.longBreakDuration;
+    document.getElementById('setLongInterval').value = pomoSettings.longBreakInterval;
+  }
+  const todayData = localStorage.getItem('timer_pomodoro_today');
+  const today = new Date().toDateString();
+  if (todayData) {
+    const td = JSON.parse(todayData);
+    if (td.date === today) {
+      pomoState.todayTotalMinutes = td.minutes || 0;
+      pomoState.completedRounds = td.rounds || 0;
+    }
+  }
+  pomoState.todayDate = today;
+}
+
+function savePomoSettings() {
+  localStorage.setItem('timer_pomodoro_settings', JSON.stringify(pomoSettings));
+  localStorage.setItem('timer_pomodoro_today', JSON.stringify({
+    date: pomoState.todayDate, minutes: pomoState.todayTotalMinutes, rounds: pomoState.completedRounds
+  }));
+}
+
+function getSessionSeconds() {
+  if (pomoState.currentSession === 'focus') return pomoSettings.focusDuration * 60;
+  if (pomoState.currentSession === 'shortBreak') return pomoSettings.shortBreakDuration * 60;
+  return pomoSettings.longBreakDuration * 60;
+}
+
+function getSessionLabel() {
+  const labels = { focus: '专注时间', shortBreak: '短休时间', longBreak: '长休时间' };
+  const totalRounds = pomoSettings.longBreakInterval;
+  return `${labels[pomoState.currentSession]} · 第 ${Math.min(pomoState.completedRounds + 1, totalRounds)}/${totalRounds} 轮`;
+}
+
+function updatePomoDisplay() {
+  const mins = Math.floor(pomoState.timeRemaining / 60);
+  const secs = pomoState.timeRemaining % 60;
+  pomoTimeEl.textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  pomoLabelEl.textContent = getSessionLabel();
+  const total = getSessionSeconds();
+  const progress = 1 - (pomoState.timeRemaining / total);
+  pomoRingEl.style.strokeDasharray = CIRCUMFERENCE;
+  pomoRingEl.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+  pomoRoundsEl.textContent = pomoState.completedRounds;
+  pomoTodayMinEl.textContent = pomoState.todayTotalMinutes + 'min';
+}
+
+function setPomoPhaseUI(phase) {
+  pomoState.currentSession = phase;
+  document.querySelectorAll('.pomo-phase-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.phase === phase);
+  });
+  const btnLabels = { focus: '开始专注', shortBreak: '开始短休', longBreak: '开始长休' };
+  pomoStartBtn.textContent = btnLabels[phase];
+  pomoStartBtn.className = 'btn btn-start';
+  pomoTotalSeconds = getSessionSeconds();
+  pomoState.timeRemaining = pomoTotalSeconds;
+  pomoRingEl.style.transition = 'none';
+  pomoRingEl.style.strokeDashoffset = '0';
+  requestAnimationFrame(() => { pomoRingEl.style.transition = 'stroke-dashoffset 1s linear'; });
+  updatePomoDisplay();
+}
+
+function switchPomoPhase() {
+  clearInterval(pomoInterval);
+  pomoState.isRunning = false;
+  pomoTimeEl.classList.remove('pulse-glow');
+  if (pomoState.currentSession === 'focus') {
+    pomoState.completedRounds++;
+    pomoState.todayTotalMinutes += pomoSettings.focusDuration;
+    savePomoSettings();
+    if (pomoState.completedRounds % pomoSettings.longBreakInterval === 0) {
+      setPomoPhaseUI('longBreak');
+      notify('专注完成！来个长休息吧', '番茄钟');
+    } else {
+      setPomoPhaseUI('shortBreak');
+      notify('专注完成！休息一下吧', '番茄钟');
+    }
+  } else {
+    setPomoPhaseUI('focus');
+    notify('休息结束，开始新的专注吧', '番茄钟');
+  }
+  updatePomoDisplay();
+}
+
+function tickPomodoro() {
+  if (pomoState.timeRemaining <= 0) { switchPomoPhase(); }
+  else { pomoState.timeRemaining--; updatePomoDisplay(); }
+}
+
+function togglePomodoro() {
+  if (pomoState.isRunning) {
+    clearInterval(pomoInterval);
+    pomoState.isRunning = false;
+    pomoTimeEl.classList.remove('pulse-glow');
+    document.querySelector('.ring-container').classList.remove('running');
+    const labels = { focus: '继续专注', shortBreak: '继续短休', longBreak: '继续长休' };
+    pomoStartBtn.textContent = labels[pomoState.currentSession];
+    pomoStartBtn.className = 'btn btn-start';
+  } else {
+    pomoInterval = setInterval(tickPomodoro, 1000);
+    pomoState.isRunning = true;
+    pomoTimeEl.classList.add('pulse-glow');
+    document.querySelector('.ring-container').classList.add('running');
+    pomoStartBtn.textContent = '暂停';
+    pomoStartBtn.className = 'btn btn-pause';
+  }
+}
+
+function skipPomoPhase() {
+  if (pomoState.isRunning) { clearInterval(pomoInterval); pomoState.isRunning = false; }
+  pomoTimeEl.classList.remove('pulse-glow');
+  document.querySelector('.ring-container').classList.remove('running');
+  switchPomoPhase();
+  updatePomoDisplay();
+}
+
+function notify(msg, title) {
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body: msg });
+  }
+}
+
+pomoStartBtn.addEventListener('click', () => {
+  if (Notification.permission === 'default') Notification.requestPermission();
+  togglePomodoro();
+  pomoStartBtn.blur();
+});
+pomoSkipBtn.addEventListener('click', () => { skipPomoPhase(); pomoSkipBtn.blur(); });
+
+document.querySelectorAll('.pomo-phase-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (pomoState.isRunning) { clearInterval(pomoInterval); pomoState.isRunning = false; }
+    pomoTimeEl.classList.remove('pulse-glow');
+    document.querySelector('.ring-container').classList.remove('running');
+    setPomoPhaseUI(btn.dataset.phase);
+  });
+});
+
+pomoSettingsBtn.addEventListener('click', () => { pomoModal.classList.add('show'); });
+document.getElementById('pomoModalCancel').addEventListener('click', () => { pomoModal.classList.remove('show'); });
+document.getElementById('pomoModalSave').addEventListener('click', () => {
+  pomoSettings.focusDuration = parseInt(document.getElementById('setFocus').value) || 25;
+  pomoSettings.shortBreakDuration = parseInt(document.getElementById('setShortBreak').value) || 5;
+  pomoSettings.longBreakDuration = parseInt(document.getElementById('setLongBreak').value) || 15;
+  pomoSettings.longBreakInterval = parseInt(document.getElementById('setLongInterval').value) || 4;
+  savePomoSettings();
+  pomoModal.classList.remove('show');
+  if (!pomoState.isRunning) setPomoPhaseUI(pomoState.currentSession);
+});
+pomoModal.addEventListener('click', (e) => { if (e.target === pomoModal) pomoModal.classList.remove('show'); });
+
+// ==================== 任务清单逻辑 ====================
+let tasks = [];
+let activeTaskId = null;
+let taskTimerInterval = null;
+
+const taskInput = document.getElementById('taskInput');
+const taskAddBtn = document.getElementById('taskAddBtn');
+const taskList = document.getElementById('taskList');
+const taskPendingCount = document.getElementById('taskPendingCount');
+const taskTodayTotal = document.getElementById('taskTodayTotal');
+
+function loadTasks() {
+  const saved = localStorage.getItem('timer_tasks');
+  if (saved) tasks = JSON.parse(saved);
+  activeTaskId = localStorage.getItem('timer_active_task') || null;
+}
+
+function saveTasks() {
+  localStorage.setItem('timer_tasks', JSON.stringify(tasks));
+  localStorage.setItem('timer_active_task', activeTaskId || '');
+}
+
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 6); }
+
+function addTask(title) {
+  tasks.push({ id: generateId(), title, completed: false, totalTime: 0, createdAt: new Date().toISOString() });
+  saveTasks(); renderTasks();
+}
+
+function deleteTask(id) {
+  if (activeTaskId === id) stopTaskTimer();
+  tasks = tasks.filter(t => t.id !== id);
+  saveTasks(); renderTasks();
+}
+
+function toggleTaskComplete(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  if (activeTaskId === id) stopTaskTimer();
+  task.completed = !task.completed;
+  saveTasks(); renderTasks();
+}
+
+function startTaskTimer(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task || task.completed) return;
+  if (activeTaskId && activeTaskId !== id) stopTaskTimer();
+  activeTaskId = id;
+  saveTasks();
+  taskTimerInterval = setInterval(() => { task.totalTime += 1000; renderTasks(); }, 1000);
+  renderTasks();
+}
+
+function stopTaskTimer() {
+  clearInterval(taskTimerInterval);
+  taskTimerInterval = null; activeTaskId = null;
+  saveTasks(); renderTasks();
+}
+
+function handleTaskClick(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task || task.completed) return;
+  if (activeTaskId === id) { stopTaskTimer(); } else { startTaskTimer(id); }
+}
+
+function getTodayTotal() {
+  const today = new Date().toDateString();
+  return tasks.reduce((sum, t) => {
+    if (new Date(t.createdAt).toDateString() === today) return sum + t.totalTime;
+    return sum;
+  }, 0);
+}
+
+function renderTasks() {
+  if (tasks.length === 0) {
+    taskList.innerHTML = '<div class="empty-lap-tip">暂无任务，添加一个开始吧</div>';
+  } else {
+    taskList.innerHTML = tasks.map(t => {
+      const ac = t.id === activeTaskId ? ' active-task' : '';
+      const cc = t.completed ? ' completed' : '';
+      return `<div class="task-item${ac}${cc}" data-id="${t.id}">
+        <div class="task-check" data-action="check">✓</div>
+        <span class="task-title" data-action="start">${t.title}</span>
+        <span class="task-time" data-action="start">${formatHMSFull(t.totalTime)}</span>
+        <button class="task-delete" data-action="delete">&times;</button>
+      </div>`;
+    }).join('');
+  }
+  const pending = tasks.filter(t => !t.completed).length;
+  taskPendingCount.textContent = pending + ' 待完成';
+  taskTodayTotal.textContent = '今日合计: ' + formatHMSFull(getTodayTotal());
+}
+
+taskList.addEventListener('click', (e) => {
+  const item = e.target.closest('.task-item');
+  if (!item) return;
+  const id = item.dataset.id;
+  const action = e.target.dataset.action;
+  if (action === 'delete') { e.stopPropagation(); deleteTask(id); }
+  else if (action === 'check') { e.stopPropagation(); toggleTaskComplete(id); }
+  else { handleTaskClick(id); }
+});
+
+taskAddBtn.addEventListener('click', () => {
+  const title = taskInput.value.trim();
+  if (title) { addTask(title); taskInput.value = ''; taskInput.focus(); }
+});
+taskInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const title = taskInput.value.trim();
+    if (title) { addTask(title); taskInput.value = ''; }
+  }
+});
+
+// ==================== 每日一言 ====================
+const quotes = [
+  { text: '千里之行，始于足下', author: '老子' },
+  { text: '不积跬步，无以至千里', author: '荀子' },
+  { text: '时间就是生命', author: '鲁迅' },
+  { text: '天行健，君子以自强不息', author: '周易' },
+  { text: '业精于勤，荒于嬉', author: '韩愈' },
+  { text: '莫等闲，白了少年头', author: '岳飞' },
+  { text: '盛年不重来，一日难再晨', author: '陶渊明' },
+  { text: '一万年太久，只争朝夕', author: '毛泽东' },
+  { text: '今日事，今日毕', author: '谚语' },
+  { text: '寸金难买寸光阴', author: '谚语' },
+  { text: '宝剑锋从磨砺出，梅花香自苦寒来', author: '佚名' },
+  { text: '学如逆水行舟，不进则退', author: '佚名' },
+  { text: '路漫漫其修远兮，吾将上下而求索', author: '屈原' },
+  { text: '世上无难事，只要肯登攀', author: '毛泽东' },
+  { text: '少壮不努力，老大徒伤悲', author: '汉乐府' },
+  { text: '书山有路勤为径，学海无涯苦作舟', author: '韩愈' },
+  { text: '有志者，事竟成', author: '后汉书' },
+  { text: '锲而不舍，金石可镂', author: '荀子' },
+  { text: '博观而约取，厚积而薄发', author: '苏轼' },
+  { text: '纸上得来终觉浅，绝知此事要躬行', author: '陆游' },
+  { text: '人生在勤，不索何获', author: '张衡' },
+  { text: '吾生也有涯，而知也无涯', author: '庄子' },
+  { text: '三人行，必有我师焉', author: '孔子' },
+  { text: '温故而知新，可以为师矣', author: '孔子' },
+  { text: '知行合一', author: '王阳明' },
+  { text: '吃得苦中苦，方为人上人', author: '谚语' },
+  { text: '水滴石穿，非一日之功', author: '谚语' },
+  { text: '天道酬勤', author: '周易' },
+  { text: '行百里者半九十', author: '战国策' },
+  { text: '欲速则不达', author: '论语' },
+];
+
+function getTodayQuote() {
+  const today = new Date().toDateString();
+  const saved = localStorage.getItem('timer_quote');
+  if (saved) {
+    const sq = JSON.parse(saved);
+    if (sq.date === today) return sq;
+  }
+  const idx = Math.floor(Math.random() * quotes.length);
+  const quote = quotes[idx];
+  localStorage.setItem('timer_quote', JSON.stringify({ date: today, ...quote }));
+  return quote;
+}
+
+function renderQuote() {
+  const q = getTodayQuote();
+  document.getElementById('quoteText').textContent = q.text;
+  document.getElementById('quoteAuthor').textContent = '—— ' + q.author;
+}
+
+// ==================== 键盘快捷键 ====================
+window.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'INPUT') return;
+  if (currentPanel === 'stopwatch') {
+    if (e.code === 'Space') { e.preventDefault(); toggleStartPause(); }
+    if (e.code === 'KeyR') { reset(); }
+  }
+  if (currentPanel === 'pomodoro') {
+    if (e.code === 'Space') { e.preventDefault(); togglePomodoro(); }
+    if (e.code === 'KeyS' || e.code === 'KeyN') { skipPomoPhase(); }
+  }
+  if (e.code === 'Digit1') { document.querySelector('.tab-btn[data-panel="stopwatch"]').click(); }
+  if (e.code === 'Digit2') { document.querySelector('.tab-btn[data-panel="pomodoro"]').click(); }
+  if (e.code === 'Digit3') { document.querySelector('.tab-btn[data-panel="tasks"]').click(); }
+  if (e.key === 'Escape' && document.body.classList.contains('fullscreen-mode')) {
+    toggleFullscreen();
+  }
+});
+
+// ==================== 鼠标光晕跟随 ====================
+let glowX = 0, glowY = 0, curX = 0, curY = 0;
+document.addEventListener('mousemove', (e) => {
+  glowX = e.clientX;
+  glowY = e.clientY;
+});
+function animateGlow() {
+  curX += (glowX - curX) * 0.03;
+  curY += (glowY - curY) * 0.03;
+  document.documentElement.style.setProperty('--mouse-x', curX + 'px');
+  document.documentElement.style.setProperty('--mouse-y', curY + 'px');
+  requestAnimationFrame(animateGlow);
+}
+requestAnimationFrame(animateGlow);
+
+// ==================== 初始化 ====================
+loadPomoSettings();
+loadTasks();
+renderTasks();
+renderQuote();
+setPomoPhaseUI('focus');
+</script>
+</body>
+</html>
