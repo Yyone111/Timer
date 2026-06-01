@@ -4,7 +4,82 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>大师级极简计时器</title>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
 <style>
+  /* ===== 加载页 ===== */
+  .loader-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--card-bg, rgba(255,255,255,0.85));
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+  }
+  .loader-overlay.hidden {
+    opacity: 0; visibility: hidden; pointer-events: none;
+  }
+  .loader-ring-wrap {
+    position: relative; width: 80px; height: 80px;
+  }
+  .loader-ring-wrap svg {
+    width: 100%; height: 100%;
+    animation: loaderSpin 3s linear infinite;
+  }
+  .loader-ring-bg {
+    fill: none; stroke: var(--surface, #e2e8f0); stroke-width: 3;
+  }
+  .loader-ring-fg {
+    fill: none; stroke: var(--primary, #7c3aed); stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 283; stroke-dashoffset: 283;
+    animation: loaderDraw 1.6s ease-in-out infinite;
+  }
+  @keyframes loaderSpin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes loaderDraw {
+    0% { stroke-dashoffset: 283; }
+    50% { stroke-dashoffset: 60; }
+    100% { stroke-dashoffset: 283; }
+  }
+  .loader-dots {
+    display: flex; gap: 8px; margin-top: 20px;
+  }
+  .loader-dots span {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--primary, #7c3aed);
+    animation: loaderBounce 0.8s ease-in-out infinite;
+  }
+  .loader-dots span:nth-child(2) { animation-delay: 0.12s; }
+  .loader-dots span:nth-child(3) { animation-delay: 0.24s; }
+  @keyframes loaderBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    40% { transform: translateY(-20px) scale(0.85); }
+    60% { transform: translateY(-20px) scale(1.15); }
+    80% { transform: translateY(0) scale(0.9); }
+  }
+  .loader-label {
+    margin-top: 16px; font-size: 0.85rem; font-weight: 600;
+    color: var(--text-muted, #475569);
+    letter-spacing: 1px;
+    animation: loaderPulse 2s ease-in-out infinite;
+  }
+  @keyframes loaderPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+  .loader-ambient {
+    position: absolute; width: 120px; height: 120px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%);
+    pointer-events: none;
+    animation: loaderAmbient 2.5s ease-in-out infinite;
+  }
+  @keyframes loaderAmbient {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50% { transform: scale(1.3); opacity: 0.6; }
+  }
+
   :root {
     --bg-image: url("23d1a7fe1ab28f6a7e51f0a475a2a80.png");
     --card-bg: rgba(255, 255, 255, 0.55);
@@ -109,7 +184,7 @@
     transition: all 0.5s cubic-bezier(0.4,0,0.2,1);
     position: relative;
     overflow: hidden;
-    animation: cardEnter 0.7s 0.1s cubic-bezier(0.4,0,0.2,1) both;
+    opacity: 0;
   }
   @keyframes cardEnter {
     from { opacity: 0; transform: translateY(20px) scale(0.96); }
@@ -205,6 +280,13 @@
     75% { transform: translateY(2px); }
   }
 
+  /* 触控设备禁用卡片浮动（避免 iOS hit-test 偏移） */
+  @media (hover: none) and (pointer: coarse) {
+    .card-float {
+      animation: none;
+    }
+  }
+
   /* ===== 标签导航 ===== */
   .tab-nav {
     display: flex; gap: 0;
@@ -212,7 +294,7 @@
     border-radius: 16px; padding: 5px; margin-bottom: 1.8rem;
     position: relative; z-index: 2;
     box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-    animation: tabEnter 0.5s 0.2s cubic-bezier(0.4,0,0.2,1) both;
+    opacity: 0;
   }
   @keyframes tabEnter {
     from { opacity: 0; transform: scale(0.95); }
@@ -235,6 +317,10 @@
     color: var(--text-dim); cursor: pointer;
     transition: color 0.3s cubic-bezier(0.4,0,0.2,1); outline: none;
     position: relative; z-index: 1;
+	    touch-action: manipulation;
+	    -webkit-tap-highlight-color: transparent;
+	    -webkit-user-select: none;
+	    user-select: none;
   }
   .tab-btn.active { color: var(--primary); font-weight: 700; }
   .tab-btn:hover:not(.active) { color: var(--text-muted); }
@@ -312,6 +398,12 @@
     cursor: pointer; transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
     display: inline-flex; align-items: center; gap: 0.35rem;
     color: #fff; position: relative; letter-spacing: 0.3px;
+	    touch-action: manipulation;
+	    -webkit-tap-highlight-color: transparent;
+	    -webkit-user-select: none;
+	    user-select: none;
+	    transform: translateZ(0);
+	    pointer-events: auto;
   }
   .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
   .btn:active { transform: translateY(0); filter: brightness(0.95); }
@@ -331,7 +423,7 @@
   /* ===== 快捷键提示 ===== */
   .speed-dial {
     display: flex; justify-content: center; gap: 10px; margin-top: 1.5rem;
-    animation: fadeInUp 0.6s 0.3s cubic-bezier(0.4,0,0.2,1) both;
+    opacity: 0;
   }
   @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(10px); }
@@ -367,6 +459,10 @@
     cursor: pointer; transition: all 0.3s; outline: none;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
+	    touch-action: manipulation;
+	    -webkit-tap-highlight-color: transparent;
+	    -webkit-user-select: none;
+	    user-select: none;
   }
   .pomo-phase-btn.active {
     background: var(--primary); color: #fff; border-color: var(--primary);
@@ -427,6 +523,10 @@
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.35); backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
+	    touch-action: manipulation;
+	    -webkit-tap-highlight-color: transparent;
+	    -webkit-user-select: none;
+	    user-select: none;
     z-index: 100; justify-content: center; align-items: center;
   }
   .modal-overlay.show { display: flex; }
@@ -487,7 +587,10 @@
     border: 1px solid var(--border); gap: 10px;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    animation: taskEnter 0.4s ease both;
+	    touch-action: manipulation;
+	    -webkit-tap-highlight-color: transparent;
+	    -webkit-user-select: none;
+	    user-select: none;
   }
   @keyframes taskEnter {
     from { opacity: 0; transform: translateX(-12px); }
@@ -538,7 +641,7 @@
     font-size: 0.8rem; color: var(--text-muted); font-style: italic;
     transition: opacity 0.8s ease;
     font-weight: 500; letter-spacing: 0.3px;
-    animation: quoteFade 1s 0.5s cubic-bezier(0.4,0,0.2,1) both;
+    opacity: 0;
     text-shadow: 0 1px 2px rgba(0,0,0,0.03);
   }
   @keyframes quoteFade {
@@ -571,10 +674,47 @@
   body.fullscreen-mode .pomo-stats { display: none; }
   body.fullscreen-mode .pomo-time { font-size: 11vw; }
   body.fullscreen-mode .ring-container { width: 32vw; height: 32vw; }
+
+  /* ===== 触控设备优化（iPad/iOS 修复） ===== */
+  @media (hover: none) and (pointer: coarse) {
+    /* 消除 :hover transform 对 iOS 点击事件的拦截 */
+    .btn:hover {
+      transform: none;
+      filter: none;
+    }
+    .btn-start:hover,
+    .btn-pause:hover {
+      box-shadow: none;
+    }
+    .task-item:hover {
+      transform: none;
+      background: var(--surface);
+      border-color: var(--border);
+    }
+    /* 保持轻点反馈 via :active */
+    .btn:active {
+      transform: scale(0.95);
+      filter: brightness(0.92);
+    }
+  }
 </style>
 </head>
 <body>
+<div class="loader-overlay" id="loaderOverlay">
+  <div class="loader-ambient" id="loaderAmbient"></div>
+  <div class="loader-ring-wrap" id="loaderRingWrap">
+    <svg viewBox="0 0 100 100">
+      <circle class="loader-ring-bg" cx="50" cy="50" r="45"/>
+      <circle class="loader-ring-fg" id="loaderRingFg" cx="50" cy="50" r="45"/>
+    </svg>
+  </div>
+  <div class="loader-dots" id="loaderDots">
+    <span></span><span></span><span></span>
+  </div>
+  <div class="loader-label" id="loaderLabel">计时器加载中</div>
+</div>
 <div class="mouse-glow"></div>
+<div class="ambient-orb"></div>
 <div class="ambient-orb"></div>
 <div class="ambient-orb"></div>
 <div class="container card-float" id="card">
@@ -731,10 +871,7 @@ const tabNav = document.getElementById('tabNav');
 let currentPanel = 'stopwatch';
 
 function moveTabSlider(targetBtn) {
-  const navRect = tabNav.getBoundingClientRect();
-  const btnRect = targetBtn.getBoundingClientRect();
-  tabSlider.style.left = (btnRect.left - navRect.left) + 'px';
-  tabSlider.style.width = btnRect.width + 'px';
+  moveTabSliderGSAP(targetBtn);
 }
 
 tabBtns.forEach(btn => {
@@ -799,6 +936,7 @@ function printTime() {
   const ms = Math.floor((elapsedTime % 1000) / 10);
   displayEl.innerHTML = `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}<span class="ms-display">.${String(ms).padStart(2,'0')}</span>`;
   playTickSound(elapsedTime);
+  animateNumberBounce(elapsedTime);
 }
 
 function toggleStartPause() {
@@ -810,7 +948,9 @@ function toggleStartPause() {
     startPauseBtn.className = 'btn btn-pause';
     card.classList.add('running');
     isRunning = true;
+    prevSecond = -1;
     if (currentPanel === 'stopwatch') displayEl.classList.add('pulse-glow');
+    gsap.to(card, { y: -4, duration: 0.35, ease: "back.out(1.7)" });
   } else {
     clearInterval(stopwatchInterval);
     startPauseBtn.textContent = '继续';
@@ -818,26 +958,39 @@ function toggleStartPause() {
     card.classList.remove('running');
     isRunning = false;
     displayEl.classList.remove('pulse-glow');
+    gsap.to(card, { y: 0, duration: 0.35, ease: "power2.in" });
   }
+  animateButtonPress(startPauseBtn);
 }
 
 function reset() {
   clearInterval(stopwatchInterval);
   displayEl.innerHTML = '00:00:00<span class="ms-display">.00</span>';
-  elapsedTime = 0; isRunning = false; lastTickSecond = -1;
+  elapsedTime = 0; isRunning = false; lastTickSecond = -1; prevSecond = -1;
   startPauseBtn.textContent = '开始';
   startPauseBtn.className = 'btn btn-start';
   card.classList.remove('running');
   displayEl.classList.remove('pulse-glow');
+  gsap.to(card, { y: 0, duration: 0.35, ease: "power2.in" });
+  animateResetShake();
 }
 
 soundBtn.addEventListener('click', () => {
   isSoundOn = !isSoundOn;
   soundBtn.classList.toggle('active', isSoundOn);
   initAudio();
+  animateButtonPress(soundBtn);
 });
 
 function toggleFullscreen() {
+  const entering = !document.body.classList.contains('fullscreen-mode');
+  if (entering && !reducedMotion) {
+    gsap.to(card, { borderRadius: 0, duration: 0.3, ease: "power2.inOut" });
+    gsap.to(displayEl, { scale: 1.2, duration: 0.4, ease: "back.out(1.7)" });
+  } else if (!entering && !reducedMotion) {
+    gsap.to(card, { borderRadius: 28, duration: 0.3, ease: "power2.inOut" });
+    gsap.fromTo(displayEl, { scale: 1.2 }, { scale: 1, duration: 0.4, ease: "power2.out" });
+  }
   document.body.classList.toggle('fullscreen-mode');
 }
 displayContainer.addEventListener('click', toggleFullscreen);
@@ -945,7 +1098,10 @@ function switchPomoPhase() {
   clearInterval(pomoInterval);
   pomoState.isRunning = false;
   pomoTimeEl.classList.remove('pulse-glow');
+  stopRingPulse();
+  document.querySelector('.ring-container').classList.remove('running');
   if (pomoState.currentSession === 'focus') {
+    animatePomoComplete();
     pomoState.completedRounds++;
     pomoState.todayTotalMinutes += pomoSettings.focusDuration;
     savePomoSettings();
@@ -974,6 +1130,7 @@ function togglePomodoro() {
     pomoState.isRunning = false;
     pomoTimeEl.classList.remove('pulse-glow');
     document.querySelector('.ring-container').classList.remove('running');
+    stopRingPulse();
     const labels = { focus: '继续专注', shortBreak: '继续短休', longBreak: '继续长休' };
     pomoStartBtn.textContent = labels[pomoState.currentSession];
     pomoStartBtn.className = 'btn btn-start';
@@ -982,27 +1139,30 @@ function togglePomodoro() {
     pomoState.isRunning = true;
     pomoTimeEl.classList.add('pulse-glow');
     document.querySelector('.ring-container').classList.add('running');
+    startRingPulse();
     pomoStartBtn.textContent = '暂停';
     pomoStartBtn.className = 'btn btn-pause';
   }
+  animateButtonPress(pomoStartBtn);
 }
 
 function skipPomoPhase() {
   if (pomoState.isRunning) { clearInterval(pomoInterval); pomoState.isRunning = false; }
   pomoTimeEl.classList.remove('pulse-glow');
   document.querySelector('.ring-container').classList.remove('running');
+  stopRingPulse();
   switchPomoPhase();
   updatePomoDisplay();
 }
 
 function notify(msg, title) {
-  if (Notification.permission === 'granted') {
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
     new Notification(title, { body: msg });
   }
 }
 
 pomoStartBtn.addEventListener('click', () => {
-  if (Notification.permission === 'default') Notification.requestPermission();
+  if (typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission();
   togglePomodoro();
   pomoStartBtn.blur();
 });
@@ -1013,11 +1173,15 @@ document.querySelectorAll('.pomo-phase-btn').forEach(btn => {
     if (pomoState.isRunning) { clearInterval(pomoInterval); pomoState.isRunning = false; }
     pomoTimeEl.classList.remove('pulse-glow');
     document.querySelector('.ring-container').classList.remove('running');
+    stopRingPulse();
     setPomoPhaseUI(btn.dataset.phase);
   });
 });
 
-pomoSettingsBtn.addEventListener('click', () => { pomoModal.classList.add('show'); });
+pomoSettingsBtn.addEventListener('click', () => {
+  pomoModal.classList.add('show');
+  animateModalOpen(pomoModal.querySelector('.modal'));
+});
 document.getElementById('pomoModalCancel').addEventListener('click', () => { pomoModal.classList.remove('show'); });
 document.getElementById('pomoModalSave').addEventListener('click', () => {
   pomoSettings.focusDuration = parseInt(document.getElementById('setFocus').value) || 25;
@@ -1055,14 +1219,26 @@ function saveTasks() {
 function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 6); }
 
 function addTask(title) {
-  tasks.push({ id: generateId(), title, completed: false, totalTime: 0, createdAt: new Date().toISOString() });
+  const newId = generateId();
+  tasks.push({ id: newId, title, completed: false, totalTime: 0, createdAt: new Date().toISOString() });
   saveTasks(); renderTasks();
+  const el = document.querySelector(`.task-item[data-id="${newId}"]`);
+  if (el) animateTaskEnter(el);
 }
 
 function deleteTask(id) {
-  if (activeTaskId === id) stopTaskTimer();
-  tasks = tasks.filter(t => t.id !== id);
-  saveTasks(); renderTasks();
+  const el = document.querySelector(`.task-item[data-id="${id}"]`);
+  if (el) {
+    animateTaskExit(el, () => {
+      if (activeTaskId === id) stopTaskTimer();
+      tasks = tasks.filter(t => t.id !== id);
+      saveTasks(); renderTasks();
+    });
+  } else {
+    if (activeTaskId === id) stopTaskTimer();
+    tasks = tasks.filter(t => t.id !== id);
+    saveTasks(); renderTasks();
+  }
 }
 
 function toggleTaskComplete(id) {
@@ -1071,6 +1247,12 @@ function toggleTaskComplete(id) {
   if (activeTaskId === id) stopTaskTimer();
   task.completed = !task.completed;
   saveTasks(); renderTasks();
+  const el = document.querySelector(`.task-item[data-id="${id}"]`);
+  if (el && task.completed && !reducedMotion) {
+    gsap.timeline()
+      .to(el, { scale: 1.05, duration: 0.2, ease: "back.out(1.7)" })
+      .to(el, { scale: 1, duration: 0.2, ease: "power2.out" });
+  }
 }
 
 function startTaskTimer(id) {
@@ -1231,12 +1413,252 @@ function animateGlow() {
 }
 requestAnimationFrame(animateGlow);
 
+// ==================== GSAP 动画系统 ====================
+gsap.defaults({ duration: 0.5, ease: "power2.out", overwrite: "auto" });
+
+let reducedMotion = false;
+const mm = gsap.matchMedia();
+mm.add(
+  { reduceMotion: "(prefers-reduced-motion: reduce)" },
+  (ctx) => {
+    reducedMotion = ctx.conditions?.reduceMotion ?? false;
+  }
+);
+
+// ==================== Loading 动画 ====================
+const loaderRingFg = document.getElementById('loaderRingFg');
+const loaderDots = document.getElementById('loaderDots');
+const loaderLabel = document.getElementById('loaderLabel');
+const loaderRingWrap = document.getElementById('loaderRingWrap');
+const loaderAmbient = document.getElementById('loaderAmbient');
+
+let loaderAnims = [];
+const gsapReady = typeof gsap !== 'undefined';
+
+function startLoaderAnimation() {
+  if (!gsapReady || reducedMotion) return;
+
+  // 清除 CSS fallback 动画并开始 GSAP
+  const els = [loaderRingWrap.querySelector('svg'), loaderRingFg, loaderLabel, loaderAmbient];
+  els.forEach(el => { if (el) el.style.animation = 'none'; });
+  loaderDots.querySelectorAll('span').forEach(el => { el.style.animation = 'none'; });
+
+  // Ring 旋转
+  loaderAnims.push(gsap.to(loaderRingWrap.querySelector('svg'), {
+    rotation: 360, duration: 3, repeat: -1, ease: "none"
+  }));
+
+  // Ring 描边描画/回退
+  loaderAnims.push(gsap.to(loaderRingFg, {
+    strokeDashoffset: 50, duration: 1.2, repeat: -1, yoyo: true, ease: "power2.inOut"
+  }));
+
+  // 弹跳小点 —— 带 elastic 弹性
+  loaderDots.querySelectorAll('span').forEach((dot, i) => {
+    loaderAnims.push(gsap.to(dot, {
+      y: -32, scale: 1.35, duration: 0.55,
+      ease: "power2.out",
+      repeat: -1, yoyo: true,
+      repeatDelay: 0.6,
+      delay: i * 0.12
+    }));
+  });
+
+  // 标签脉冲
+  loaderAnims.push(gsap.to(loaderLabel, {
+    opacity: 0.35, duration: 1.5, repeat: -1, yoyo: true, ease: "sine.inOut"
+  }));
+
+  // 环境光晕浮动
+  loaderAnims.push(gsap.to(loaderAmbient, {
+    scale: 1.3, opacity: 0.6, duration: 2.5, repeat: -1, yoyo: true, ease: "sine.inOut"
+  }));
+
+  // Ring 辉光呼吸
+  loaderAnims.push(gsap.to(loaderRingWrap, {
+    filter: "drop-shadow(0 0 18px rgba(124,58,237,0.35))",
+    duration: 2, repeat: -1, yoyo: true, ease: "sine.inOut"
+  }));
+}
+
+function hideLoader() {
+  if (!gsapReady || reducedMotion) {
+    loaderOverlay.classList.add('hidden');
+    animateEntrance();
+    return;
+  }
+
+  // 杀掉所有 loading 循环动画
+  loaderAnims.forEach(a => a.kill());
+  loaderAnims = [];
+
+  const exitTl = gsap.timeline({
+    onComplete: () => {
+      loaderOverlay.classList.add('hidden');
+      animateEntrance();
+    }
+  });
+
+  exitTl
+    .to(loaderDots.querySelectorAll('span'), {
+      y: -50, autoAlpha: 0, scale: 0.5,
+      stagger: 0.06, duration: 0.35, ease: "power2.in"
+    }, 0)
+    .to(loaderRingFg, {
+      strokeDashoffset: 0, duration: 0.4, ease: "power2.in"
+    }, 0)
+    .to(loaderRingWrap, {
+      scale: 1.6, autoAlpha: 0, duration: 0.45, ease: "back.in(1.2)"
+    }, 0.05)
+    .to(loaderLabel, {
+      autoAlpha: 0, y: -8, duration: 0.25, ease: "power2.in"
+    }, 0.1)
+    .to(loaderAmbient, {
+      autoAlpha: 0, scale: 0.6, duration: 0.3, ease: "power2.in"
+    }, 0)
+    .to(loaderOverlay, {
+      opacity: 0, duration: 0.35, ease: "power2.in"
+    }, 0.2);
+}
+
+// 页面入场动画
+function animateEntrance() {
+  const controls = document.querySelector('.controls');
+  const speedDial = document.querySelector('.speed-dial');
+  const quoteBar = document.querySelector('.quote-bar');
+
+  if (reducedMotion) {
+    gsap.set([card, tabNav, displayContainer, controls, speedDial, quoteBar], { opacity: 1 });
+    return;
+  }
+
+  const entranceTl = gsap.timeline({ defaults: { ease: "elastic.out(1, 0.4)", duration: 1 } });
+
+  entranceTl
+    .fromTo(card, { scale: 0.85, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 1.2 }, 0)
+    .fromTo(tabNav, { y: -24, autoAlpha: 0 }, { y: 0, autoAlpha: 1, ease: "back.out(1.7)", duration: 0.7 }, 0.2)
+    .fromTo(displayContainer, { y: 16, autoAlpha: 0 }, { y: 0, autoAlpha: 1, ease: "back.out(1.7)", duration: 0.7 }, 0.35)
+    .fromTo(".controls .btn", { scale: 0.6, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, stagger: 0.08, ease: "back.out(2)", duration: 0.6 }, 0.5)
+    .fromTo(speedDial.children, { y: 10, autoAlpha: 0 }, { y: 0, autoAlpha: 1, stagger: 0.06, duration: 0.5, ease: "power2.out" }, 0.65)
+    .fromTo(quoteBar, { y: 12, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.7, ease: "power2.out" }, 0.8)
+    .fromTo(".ambient-orb", { autoAlpha: 0 }, { autoAlpha: 0.35, stagger: 0.2, duration: 1.2, ease: "power3.out" }, 0.3);
+}
+
+// 数字弹性跳动
+let prevSecond = -1;
+function animateNumberBounce(elapsedMs) {
+  if (reducedMotion) return;
+  const currentSec = Math.floor(elapsedMs / 1000);
+  if (currentSec !== prevSecond) {
+    prevSecond = currentSec;
+    gsap.fromTo(displayEl, { scale: 1.3 }, { scale: 1, duration: 0.3, ease: "elastic.out(1, 0.3)" });
+  }
+}
+
+// 弹性标签滑块
+let tabSliderAnim = null;
+function moveTabSliderGSAP(targetBtn) {
+  const navRect = tabNav.getBoundingClientRect();
+  const btnRect = targetBtn.getBoundingClientRect();
+  const left = (btnRect.left - navRect.left);
+  const width = btnRect.width;
+
+  if (tabSliderAnim) tabSliderAnim.kill();
+  if (reducedMotion) {
+    gsap.set(tabSlider, { left, width });
+    return;
+  }
+  tabSliderAnim = gsap.to(tabSlider, { left, width, duration: 0.45, ease: "elastic.out(1, 0.35)" });
+}
+
+// 按钮弹性反馈
+function animateButtonPress(btn) {
+  if (reducedMotion) return;
+  gsap.timeline()
+    .to(btn, { scale: 0.9, duration: 0.08 })
+    .to(btn, { scale: 1, duration: 0.4, ease: "elastic.out(1, 0.3)" });
+}
+
+// 番茄钟 ring 呼吸脉冲
+let ringPulseAnim = null;
+function startRingPulse() {
+  if (reducedMotion) return;
+  const svg = document.querySelector('.ring-container svg');
+  if (ringPulseAnim) ringPulseAnim.kill();
+  ringPulseAnim = gsap.to(svg, {
+    filter: "drop-shadow(0 2px 24px var(--primary-glow))",
+    duration: 2, repeat: -1, yoyo: true, ease: "sine.inOut"
+  });
+}
+function stopRingPulse() {
+  if (ringPulseAnim) { ringPulseAnim.kill(); ringPulseAnim = null; }
+  gsap.to('.ring-container svg', {
+    filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.04))",
+    duration: 0.5, ease: "power2.out"
+  });
+}
+
+// 番茄钟完成弹跳
+function animatePomoComplete() {
+  if (reducedMotion) return;
+  const ring = document.querySelector('.ring-container');
+  gsap.timeline()
+    .to(ring, { scale: 1.08, duration: 0.3, ease: "back.out(2)" })
+    .to(ring, { scale: 1, duration: 0.5, ease: "elastic.out(1, 0.3)" });
+  gsap.fromTo(pomoTimeEl, { scale: 1.3 }, { scale: 1, duration: 0.5, ease: "elastic.out(1, 0.3)" });
+}
+
+// 弹窗弹性入场
+function animateModalOpen(modalEl) {
+  if (reducedMotion) {
+    gsap.set(modalEl, { autoAlpha: 1, scale: 1 });
+    return;
+  }
+  gsap.fromTo(modalEl, { scale: 0.9, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.5, ease: "back.out(1.7)" });
+}
+
+// 任务项入场动画
+function animateTaskEnter(itemEl) {
+  if (reducedMotion) return;
+  gsap.from(itemEl, { x: -20, autoAlpha: 0, duration: 0.4, ease: "back.out(1.4)" });
+}
+
+// 任务项移除动画
+function animateTaskExit(itemEl, onComplete) {
+  if (reducedMotion) { onComplete(); return; }
+  gsap.to(itemEl, { scale: 0.8, autoAlpha: 0, duration: 0.25, ease: "power2.in", onComplete });
+}
+
+// 重置抖动
+function animateResetShake() {
+  if (reducedMotion) return;
+  gsap.timeline()
+    .to(card, { x: "+=4", duration: 0.05 })
+    .to(card, { x: "-=8", duration: 0.05 })
+    .to(card, { x: "+=6", duration: 0.05 })
+    .to(card, { x: "-=2", duration: 0.05 })
+    .to(card, { x: 0, duration: 0.1, ease: "power2.out" });
+}
+
 // ==================== 初始化 ====================
-loadPomoSettings();
-loadTasks();
-renderTasks();
-renderQuote();
-setPomoPhaseUI('focus');
+const loaderOverlay = document.getElementById('loaderOverlay');
+
+startLoaderAnimation();
+
+function initApp() {
+  loadPomoSettings();
+  loadTasks();
+  renderTasks();
+  renderQuote();
+  setPomoPhaseUI('focus');
+  hideLoader();
+}
+
+if (document.readyState === 'complete') {
+  initApp();
+} else {
+  window.addEventListener('load', initApp);
+}
 </script>
 </body>
 </html>
